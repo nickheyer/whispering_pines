@@ -5,7 +5,7 @@
 // - Trees & rocks scheduled for regrowth after chopping/mining
 // - Chicken coops / cow pastures come with animals that auto-produce
 // - Crop visual updates via renderer3d.updateCrop
-import { T, TILE_PROPS, ITEMS, SEEDS, BUILDABLES } from './constants';
+import { T, TILE_PROPS, ITEMS, SEEDS, BUILDABLES, cropMature } from './constants';
 import { canAccessSpookyShores } from './story';
 import { HOLLOWAY_EVIDENCE } from './story';
 
@@ -79,6 +79,11 @@ export function installInteract(Game) {
       if (door) {
         if (door.to === 'lighthouse' && !this.canEnterLighthouse()) {
           this.showToast('The gate is rusted shut. Something is missing — the island is not yet ready for you.', 5000);
+          return;
+        }
+        // The tower's base door never opens — the crystal at the top is the way
+        if (door.to === 'lighthouse_base') {
+          this.showToast('The tower door is welded shut by a century of salt and rust. The stairs inside collapsed long ago. Whatever tends the light doesn\'t use doors.', 5000);
           return;
         }
         if (door.to === 'saloon' && !(this.state.flags && this.state.flags.saloonRestored)) {
@@ -223,8 +228,15 @@ export function installInteract(Game) {
         const floor = this.state.grottoFloor || 0;
         this.triggerAction(tool.id, () => {
           this.addItem(gatherType, 1);
-          this.setTileOverride(gx, gy, T.GRASS);
-          if (!inGrotto) scheduleRegrow(this, gx, gy, origTile, 4);
+          if (inGrotto) {
+            // grotto floors regenerate on every visit — swap the tile
+            // in-place, never persist an override into the save
+            this.tiles[gy][gx] = T.FLOOR;
+            if (this.renderer3d) this.renderer3d.updateTile(gx, gy, T.FLOOR);
+          } else {
+            this.setTileOverride(gx, gy, T.GRASS);
+            scheduleRegrow(this, gx, gy, origTile, 4);
+          }
           this.audio.playSfx('pickup');
           this.spawnImpactParticles(gx + 0.5, gy + 0.5, tool.id);
           this.spawnPickupParticles(gx + 0.5, gy + 0.5, gatherType, 1);
@@ -360,12 +372,12 @@ export function installInteract(Game) {
         const seed = SEEDS.find(s => this.hasItem(s.id, 1));
         if (seed) {
           this.removeItem(seed.id, 1);
-          this.setTileOverride(fx, fy, T.TILLED, { crop: seed.crop, cropStage: 0, watered: false });
+          this.setTileOverride(fx, fy, T.TILLED, { crop: seed.crop, cropStage: 0, growDays: seed.growDays, watered: false });
           this.showToast(`Planted ${ITEMS[seed.crop]?.name || seed.crop} seed`);
           this.audio.playSfx('pickup');
         } else this.showToast('No seeds! Buy some at the General Store.');
         return;
-      } else if (ov.cropStage >= 2) {
+      } else if (cropMature(ov)) {
         // harvest — crop goes to inventory for use or sale
         const yieldCount = 2;
         this.addItem(ov.crop, yieldCount);

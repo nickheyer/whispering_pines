@@ -1,6 +1,6 @@
 // Build placement preview — a pulsing ghost marker showing where an item will be placed.
 import * as THREE from 'three';
-import { T, BUILDABLES } from './constants';
+import { T, TILE_PROPS, BUILDABLES } from './constants';
 
 // Installs build-preview logic: computes target tile each frame (on Game)
 // and renders a pulsing ghost marker (on Renderer3D).
@@ -16,10 +16,13 @@ export function installBuildPreview(Game, Renderer3D) {
       const b = BUILDABLES.find(bb => bb.id === this.buildMode);
       let canPlace = false;
       if (b) {
+        // Placed buildables can be picked up
         const cur = this.getTile(fx, fy);
-        const validTile = cur === T.FLOOR || cur === T.GRASS || cur === T.DARK_GRASS;
+        const curProps = TILE_PROPS[cur] || {};
+        const isPickup = BUILDABLES.some(bb => bb.tile === cur);
+        const validTile = isPickup || !(curProps.solid || curProps.water);
         const hasMats = Object.entries(b.cost).every(([item, c]) => this.hasItem(item, c));
-        canPlace = validTile && hasMats;
+        canPlace = validTile && (isPickup || hasMats);
       }
       this.state._buildPreviewTile = { x: fx, y: fy, canPlace };
     } else if (this.state._buildPreviewTile) {

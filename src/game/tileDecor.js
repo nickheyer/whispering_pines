@@ -1,7 +1,7 @@
 // Spooky decor tiles, tilled soil rendering, and crop growth visuals.
 // Extracted from renderer3d.js to keep file size manageable.
 import * as THREE from 'three';
-import { T } from './constants';
+import { T, cropVisualStage } from './constants';
 
 export function installTileDecor(rendererClass) {
   const proto = rendererClass.prototype;
@@ -27,7 +27,7 @@ export function installTileDecor(rendererClass) {
       const [cx, cy] = key.split(',').map(Number);
       const ov = crops[key];
       if (ov.crop !== undefined) {
-        const obj = this._buildCrop(cx + 0.5, cy + 0.5, ov.crop, ov.cropStage || 0, ov.watered);
+        const obj = this._buildCrop(cx + 0.5, cy + 0.5, ov.crop, cropVisualStage(ov), ov.watered);
         if (obj) { this.worldGroup.add(obj); this.cropObjects[key] = obj; }
       }
     }
@@ -84,7 +84,7 @@ export function installTileDecor(rendererClass) {
       this.worldGroup.remove(this.cropObjects[key]); this._dispose(this.cropObjects[key]); delete this.cropObjects[key];
     }
     if (!this.cropObjects) this.cropObjects = {};
-    const obj = this._buildCrop(x + 0.5, y + 0.5, cropData.crop, cropData.cropStage || 0, cropData.watered);
+    const obj = this._buildCrop(x + 0.5, y + 0.5, cropData.crop, cropVisualStage(cropData), cropData.watered);
     if (obj) { this.worldGroup.add(obj); this.cropObjects[key] = obj; }
   };
 

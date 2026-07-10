@@ -134,5 +134,5 @@ export const NIKKI_BASEMENT_LINE =
   '"Don\'t you love me?"\n\nNikki stands over the coffin, candles flickering around her. Her eyes are red and wet. ' +
   '"I kept them safe for you. I kept them here, so they couldn\'t take you from me. ' +
   'I dressed the wound every day. I sang to them. I was so good." Her voice breaks. ' +
-  '"You\'re not smiling. Why aren\'t smiling? I did this for US." She steps back from the coffin, ' +
+  '"You\'re not smiling. Why aren\'t you smiling? I did this for US." She steps back from the coffin, ' +
   'hands trembling — then turns and flees into the dark, sobbing your name.';

@@ -7,6 +7,7 @@ export function installParticles(Game) {
       this.particles.push({
         x: x + (Math.random() - 0.5) * 0.3,
         y: y,
+        y0: y, // spawn row — upward map drift renders as world height
         vx: (Math.random() - 0.5) * 0.8,
         vy: -1.2 - Math.random() * 0.6,
         life: 1.0 + Math.random() * 0.5,
@@ -37,6 +38,7 @@ export function installParticles(Game) {
       const speed = 0.8 + Math.random() * 2.5;
       this.particles.push({
         x: x, y: y,
+        y0: y, // spawn row — upward map drift renders as world height
         vx: Math.cos(ang) * speed,
         vy: Math.sin(ang) * speed - 1.5,
         life: 0.35 + Math.random() * 0.35,

@@ -81,7 +81,7 @@ export const VILLAINS = [
       zone: 'town',
       minDay: 6,
       requireVillainUnmasked: 'shadow_stalker',
-      nearTile: T.STATUE,
+      nearTile: T.TENTACLE_STATUE,
       nearRadius: 12,
       weather: ['rain', 'drizzle', 'storm', 'fog', 'clear'],
       spawnChance: 0.005,
@@ -94,10 +94,10 @@ export const VILLAINS = [
 // Physical evidence found in the Whispering Woods. Each piece debunks
 // one layer of the ghost's disguise during the non-violent confrontation.
 export const HOLLOWAY_EVIDENCE = [
-  { id: 'clue_sailcloth', name: 'Tattered Sail Cloth', icon: '🧵', text: 'A scrap of canvas from the shipwreck, torn and weathered. Someone wrapped themselves in it.' },
-  { id: 'clue_fogoil', name: 'Fog Oil Bottle', icon: '🧴', text: 'An empty glass bottle, slick with an oily residue. It once held the substance that makes fog cling unnaturally close.' },
-  { id: 'clue_conch', name: 'Conch Shell', icon: '🐚', text: 'A large spiral shell found by the fishing pond. Blow through it, and it produces a low, mournful wail — identical to the ghost\'s cry.' },
-  { id: 'clue_boot', name: 'Worn Boot', icon: '🥾', text: 'A single boot hidden in the reeds. Its heel has a distinctive crescent-shaped mark — the same shape pressed into every footprint on the shore.' },
+  { id: 'evidence_sailcloth', name: 'Tattered Sail Cloth', icon: '🧵', text: 'A scrap of canvas from the shipwreck, torn and weathered. Someone wrapped themselves in it.' },
+  { id: 'evidence_fogoil', name: 'Fog Oil Bottle', icon: '🧴', text: 'An empty glass bottle, slick with an oily residue. It once held the substance that makes fog cling unnaturally close.' },
+  { id: 'evidence_conch', name: 'Conch Shell', icon: '🐚', text: 'A large spiral shell found by the fishing pond. Blow through it, and it produces a low, mournful wail — identical to the ghost\'s cry.' },
+  { id: 'evidence_boot', name: 'Worn Boot', icon: '🥾', text: 'A single boot hidden in the reeds. Its heel has a distinctive crescent-shaped mark — the same shape pressed into every footprint on the shore.' },
 ];
 
 // Multi-step confrontation: each step has the ghost's claim, the correct
@@ -105,28 +105,28 @@ export const HOLLOWAY_EVIDENCE = [
 export const HOLLOWAY_CONFRONTATION = [
   {
     ghostLine: '"I am the spirit of Captain Holloway! The cold sea dragged me under, and now I walk this shore in death! FLEE, mortal — before I drag you down too!"',
-    correctEvidence: 'clue_sailcloth',
+    correctEvidence: 'evidence_sailcloth',
     response: '"A spirit, you say? Then explain this." You hold up the tattered cloth. "This is sail canvas from the wreck — and it matches your shroud exactly. You\'re no ghost. You\'re wrapped in salvage."',
     ghostRetort: 'The figure recoils. "That — that proves nothing! The fog is my domain! I command the mist!"',
     wrongResponse: 'The ghost laughs, a hollow sound. "You have nothing that touches me, mortal." You\'ll need the right evidence to break through.',
   },
   {
     ghostLine: '"The fog obeys me! I conjure the mist that hides the drowned! No living hand could shape it!"',
-    correctEvidence: 'clue_fogoil',
+    correctEvidence: 'evidence_fogoil',
     response: '"You didn\'t conjure anything." You hold up the empty bottle. "This is a fog oil flask — I found it discarded near the shore, still slick with residue. You poured it out and walked away."',
     ghostRetort: 'The ghost\'s form wavers. "The — the wailing! My voice is the cry of the drowned — no living throat could make such a sound!"',
     wrongResponse: '"Fog comes and goes," the ghost sneers. "You cannot prove I had anything to do with it." Your evidence doesn\'t fit here.',
   },
   {
     ghostLine: '"My wailing is the song of the drowned! No living throat could produce such a sound! Hear me and despair!"',
-    correctEvidence: 'clue_conch',
+    correctEvidence: 'evidence_conch',
     response: '"It\'s a conch shell." You hold it up. "I found this by the fishing pond. Blow through it — and it makes the exact same mournful wail. Anyone could do it. You\'ve been blowing a shell in the dark."',
     ghostRetort: 'The figure staggers. "The footprints! You cannot explain the footprints!"',
     wrongResponse: 'The ghost waves dismissively. "A sound in the night. That is all. You have nothing." This isn\'t the right proof for this claim.',
   },
   {
     ghostLine: '"The footprints in the mud! Barefoot, with toes far too long — left by the dead, not the living! You cannot explain them!"',
-    correctEvidence: 'clue_boot',
+    correctEvidence: 'evidence_boot',
     response: '"Barefoot?" You hold up the boot. "These boots have a crescent heel mark. I compared it to every footprint on the shore — same shape, same spacing, same stride. You walked those shores in boots, then smeared the prints to make the toes look long. You\'re no ghost. You\'re a man in old clothes."',
     ghostRetort: '',
     wrongResponse: 'The ghost\'s laughter is hollow, but you sense desperation beneath it. "The dead leave no boot prints," it mocks. You need different evidence.',

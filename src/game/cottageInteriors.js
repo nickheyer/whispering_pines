@@ -93,12 +93,13 @@ export function genCottage(tiles, w, h, doors, r, theme) {
   // door
   tiles[h - 1][cx] = T.DOOR;
   // register exit door back to town — each cottage maps to its exterior building position
+  // target the walkable tile in FRONT of each town door (door tiles are solid)
   const exits = {
-    workshop: { x: 38, y: 15 },
-    garden: { x: 16, y: 8 },
-    boathouse: { x: 4, y: 15 },
-    tower: { x: 28, y: 28 },
-    studio: { x: 16, y: 28 },
+    workshop: { x: 38, y: 14 },
+    garden: { x: 16, y: 9 },
+    boathouse: { x: 4, y: 14 },
+    tower: { x: 38, y: 25 },
+    studio: { x: 16, y: 27 },
   };
   const exit = exits[theme];
   if (exit) doors.push({ x: cx, y: h - 1, to: 'town', targetX: exit.x, targetY: exit.y });

@@ -414,8 +414,14 @@ export default function GamePage() {
           const g = gameRef.current;
           if (!g) return;
           const wasEnding = story?.phase === 'ending' && story?.ending !== 'pet_swap';
+          const wasTrueEnding = wasEnding && story?.ending === 'true';
           setStory(null);
-          if (wasEnding) {
+          if (wasTrueEnding) {
+            // The curse is broken — the story is over. Back to the main menu.
+            g.finishGame();
+            setHud(null);
+            setScreen('menu');
+          } else if (wasEnding) {
             g.startNewCycle();
           }
         }}
@@ -436,11 +442,17 @@ export default function GamePage() {
         </div>
       </div>
       <button
-        onTouchStart={() => gameRef.current?.interact(false, false)}
         onClick={() => gameRef.current?.interact(false, false)}
         className="absolute bottom-8 right-4 z-10 md:hidden w-20 h-20 rounded-full bg-amber-600/80 border-2 border-amber-300/50 text-amber-50 font-bold text-sm flex items-center justify-center shadow-lg active:scale-95"
       >
         E
+      </button>
+      {/* Tool / attack button — the Space equivalent for touch players */}
+      <button
+        onClick={() => gameRef.current?.interact(false, true)}
+        className="absolute bottom-8 right-28 z-10 md:hidden w-16 h-16 rounded-full bg-red-800/80 border-2 border-red-300/50 text-red-50 flex items-center justify-center shadow-lg active:scale-95"
+      >
+        <Sword className="w-6 h-6" />
       </button>
 
       {/* Tool Hotbar */}
@@ -568,12 +580,12 @@ export default function GamePage() {
         {showBestiary && hud && (
           <Panel title="Fish Bestiary" onClose={() => setShowBestiary(false)} icon={Fish}>
             <div className="mb-3 text-center text-xs text-blue-200/60">
-              {Object.keys(hud.inventory).filter(id => getFishDisplay(id)).length} / 100 species discovered
+              {FISH_TABLE.filter(f => hud.fishCaught?.[f.id] || (hud.inventory[f.id] || 0) > 0).length} / {FISH_TABLE.length} species discovered
             </div>
             <div className="max-h-[55vh] overflow-y-auto space-y-3 pr-1">
               {Object.entries(FISH_RARITY).map(([rarity, rInfo]) => {
                 const fishOfRarity = FISH_TABLE.filter(f => f.rarity === rarity);
-                const caught = fishOfRarity.filter(f => (hud.inventory[f.id] || 0) > 0);
+                const caught = fishOfRarity.filter(f => hud.fishCaught?.[f.id] || (hud.inventory[f.id] || 0) > 0);
                 return (
                   <div key={rarity}>
                     <div className="flex items-center gap-2 mb-1">
@@ -582,7 +594,7 @@ export default function GamePage() {
                     </div>
                     <div className="grid grid-cols-4 sm:grid-cols-5 gap-1.5">
                       {fishOfRarity.map(f => {
-                        const isCaught = (hud.inventory[f.id] || 0) > 0;
+                        const isCaught = !!hud.fishCaught?.[f.id] || (hud.inventory[f.id] || 0) > 0;
                         return (
                           <div key={f.id} className={`rounded-lg p-1.5 flex flex-col items-center gap-0.5 border ${isCaught ? 'bg-zinc-800/60 border-zinc-700/50' : 'bg-zinc-900/30 border-zinc-800/30 opacity-40'}`}>
                             <div className="flex justify-center"><CreatureSprite category="fish" id={f.id} size={28} unknown={!isCaught} /></div>

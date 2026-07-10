@@ -16,6 +16,16 @@ const INTERACTIVE_TILES = new Set();
 
 function C(hex) { return new THREE.Color(hex); }
 
+// Lighting/fog palette — allocated once; _updateLighting/_updateFog lerp
+// these every frame and must never allocate
+const LIGHT_PALETTE = {
+  ambDay: C(0x7a8abb), ambNight: C(0x161638), twilightAmb: C(0x8a4a6a),
+  sunDay: C(0xfff0d0), sunNight: C(0x3a5599), golden: C(0xff8a3a), twilightSun: C(0xcc6a8a),
+  bloodAmb: C(0x8a2a1a), bloodSun: C(0xff3a1a), glowAmb: C(0x2a5a4a),
+  fogDayIn: C(0x4a3828), fogDayOut: C(0x8a8878), fogNightIn: C(0x1a1018), fogNightOut: C(0x181820),
+  bloodFog: C(0x6a1a1a), snowFog: C(0xc0d0e0),
+};
+
 // Ground color beneath each tile type
 function groundColorFor(tile, interior) {
   const base = interior ? COLORS.floor[0] : COLORS.grass[0];
@@ -141,6 +151,19 @@ export class Renderer3D {
     if (this.composer) this.composer.setSize(w, h);
   }
 
+  // ── Full teardown — call when the game unmounts, or every menu→play cycle
+  // leaks a scene, composer, and WebGL context ──
+  dispose() {
+    [this.worldGroup, this.entityGroup, this.fxGroup, this.sceneryGroup].forEach(g => {
+      while (g.children.length) { const o = g.children[0]; g.remove(o); this._dispose(o); }
+    });
+    if (this._shadowGeo) { this._shadowGeo._shared = false; this._shadowGeo.dispose(); this._shadowGeo = null; }
+    if (this._shadowMat) { this._shadowMat._shared = false; this._shadowMat.dispose(); this._shadowMat = null; }
+    if (this.composer && this.composer.dispose) this.composer.dispose();
+    this.renderer.dispose();
+    if (this.renderer.forceContextLoss) this.renderer.forceContextLoss();
+  }
+
   // ── World building ──
   buildWorld(tiles, crops, zone, season) {
     this.zoneW = zone.w; this.zoneH = zone.h;
@@ -176,9 +199,11 @@ export class Renderer3D {
     if (!this._shadowGeo) {
       this._shadowGeo = new THREE.CircleGeometry(0.4, 16);
       this._shadowGeo.rotateX(-Math.PI / 2);
+      this._shadowGeo._shared = true;
     }
     if (!this._shadowMat) {
       this._shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.35, depthWrite: false });
+      this._shadowMat._shared = true;
     }
     const m = new THREE.Mesh(this._shadowGeo, this._shadowMat);
     m.scale.setScalar(scale);
@@ -187,8 +212,17 @@ export class Renderer3D {
   }
 
   _dispose(obj) {
-    if (obj.geometry) obj.geometry.dispose();
-    if (obj.material) { Array.isArray(obj.material) ? obj.material.forEach(m => m.dispose()) : obj.material.dispose(); }
+    // resources flagged _shared (e.g. the blob-shadow geo/mat) outlive any
+    // single object — never dispose them here
+    if (obj.geometry && !obj.geometry._shared) obj.geometry.dispose();
+    if (obj.material) {
+      const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+      for (const m of mats) {
+        if (m._shared) continue;
+        if (m.map) m.map.dispose();
+        m.dispose();
+      }
+    }
     if (obj.children) obj.children.forEach(c => this._dispose(c));
   }
 
@@ -225,6 +259,13 @@ export class Renderer3D {
       // Remove stale interactive tile entry for this position
       this.interactiveTiles = this.interactiveTiles.filter(t => !(Math.floor(t.x) === x && Math.floor(t.z) === y));
       this._buildTileObjectTracked(tile, x + 0.5, y + 0.5);
+      // fences draw their rails from neighbour state — rebuild adjacent
+      // fences so connections appear (and disappear) immediately
+      for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) {
+        if (ny >= 0 && ny < this._tiles.length && nx >= 0 && nx < (this._tiles[ny]?.length || 0) && this._tiles[ny][nx] === T.FENCE) {
+          this._buildTileObjectTracked(T.FENCE, nx + 0.5, ny + 0.5);
+        }
+      }
     }
   }
 
@@ -1748,11 +1789,38 @@ export class Renderer3D {
     return sprite;
   }
 
-  _updateSprite(sprite, drawFn) {
+  _updateSprite(sprite, drawFn, key) {
+    // when a key is given, skip the canvas redraw if nothing visible changed
+    if (key !== undefined && sprite.userData.lastKey === key) return;
+    sprite.userData.lastKey = key;
     const { canvas, ctx, texture } = sprite.userData;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     drawFn(ctx);
     texture.needsUpdate = true;
+  }
+
+  // ── Sprite pools — reuse sprites frame to frame instead of building a new
+  // canvas+texture+material+sprite per entity per frame (the old way leaked
+  // GPU textures at ~60×entityCount/sec in combat) ──
+  _poolEntry(pool, i, withShadow) {
+    if (!pool[i]) {
+      const sprite = this._createSprite(1, 1);
+      this.entityGroup.add(sprite);
+      const entry = { sprite, shadow: null };
+      if (withShadow) { entry.shadow = this._addBlobShadow(0.5); this.entityGroup.add(entry.shadow); }
+      pool[i] = entry;
+    }
+    const entry = pool[i];
+    entry.sprite.visible = true;
+    if (entry.shadow) entry.shadow.visible = true;
+    return entry;
+  }
+
+  _hidePoolTail(pool, count) {
+    for (let i = count; i < pool.length; i++) {
+      pool[i].sprite.visible = false;
+      if (pool[i].shadow) pool[i].shadow.visible = false;
+    }
   }
 
   _buildEntities(zone) {
@@ -1855,6 +1923,8 @@ export class Renderer3D {
       this.fxGroup.add(sp);
     }
 
+    // reset per zone — stale sprites were disposed with the old fxGroup
+    this.fireflies = [];
     if (zone.def.fireflies) {
       for (let i = 0; i < 15; i++) {
         const sp = this._createSprite(0.1, 0.1);
@@ -1911,11 +1981,17 @@ export class Renderer3D {
     this.lanternOn = !!state.lanternOn;
     setLanternOn(this.lanternOn);
 
+    // Frame delta — all easing/animation below scales by real time so
+    // 120Hz displays don't run double-speed
+    const now = performance.now();
+    const dt = Math.min((now - (this._lastFrame || now)) / 1000, 0.05);
+    this._lastFrame = now;
+
     // Camera follows player — centered behind, elevated for visibility
     const px = s.player.x, pz = s.player.y;
     const camY = this.zoneInterior ? 5.0 : 6.2;
     this._tmpVec.set(px, camY, pz + 5.2);
-    this.camera.position.lerp(this._tmpVec, 0.35);
+    this.camera.position.lerp(this._tmpVec, 1 - Math.exp(-26 * dt));
     this.camera.lookAt(px, 0.6, pz - 1.0);
 
     // Sun follows player so the shadow camera always covers the visible area
@@ -1929,7 +2005,7 @@ export class Renderer3D {
     // Dynamic bloom — stronger at night so lanterns and fireflies glow; subtle by day
     if (this.bloomPass) {
       const targetBloom = isNight ? 0.85 : 0.35;
-      this.bloomPass.strength += (targetBloom - this.bloomPass.strength) * 0.03;
+      this.bloomPass.strength += (targetBloom - this.bloomPass.strength) * (1 - Math.exp(-1.8 * dt));
     }
 
     this.playerLight.position.set(px, 1.5, pz);
@@ -1945,11 +2021,6 @@ export class Renderer3D {
       this.playerLight.decay = 1.5;
       this.playerLight.color.set(0xffaa44);
     }
-
-    // Compute frame delta time for animations
-    const now = performance.now();
-    const dt = Math.min((now - (this._lastFrame || now)) / 1000, 0.05);
-    this._lastFrame = now;
 
     // Sway interactive vegetation near the player — bushes rustle, grass bends
     this._updateInteractiveTiles(s.player.x, s.player.y, s.player.moving, dt);
@@ -2028,7 +2099,7 @@ export class Renderer3D {
     }
 
     this.composer.render();
-    this.clock += 0.016;
+    this.clock += dt;
   }
 
   _updateLighting(time, weather, isNight, zone) {
@@ -2050,17 +2121,15 @@ export class Renderer3D {
       this.hemi.intensity = 0.25;
     } else {
       // Exterior: richer day/night transitions with golden hour
-      const ambDay = new THREE.Color(0x7a8abb), ambNight = new THREE.Color(0x161638);
-      this.ambient.color.copy(ambNight).lerp(ambDay, dayFactor);
+      this.ambient.color.copy(LIGHT_PALETTE.ambNight).lerp(LIGHT_PALETTE.ambDay, dayFactor);
       // twilight adds warm purple-pink to ambient
-      this.ambient.color.lerp(new THREE.Color(0x8a4a6a), twilight * 0.4);
+      this.ambient.color.lerp(LIGHT_PALETTE.twilightAmb, twilight * 0.4);
       this.ambient.intensity = 0.28 + dayFactor * 0.38;
-      const sunDay = new THREE.Color(0xfff0d0), sunNight = new THREE.Color(0x3a5599);
-      this.sun.color.copy(sunNight).lerp(sunDay, dayFactor);
+      this.sun.color.copy(LIGHT_PALETTE.sunNight).lerp(LIGHT_PALETTE.sunDay, dayFactor);
       // golden hour — deep amber warmth
-      this.sun.color.lerp(new THREE.Color(0xff8a3a), golden * 0.55);
+      this.sun.color.lerp(LIGHT_PALETTE.golden, golden * 0.55);
       // twilight — soft pink-purple
-      this.sun.color.lerp(new THREE.Color(0xcc6a8a), twilight * 0.3);
+      this.sun.color.lerp(LIGHT_PALETTE.twilightSun, twilight * 0.3);
       this.sun.intensity = 0.12 + dayFactor * 0.65;
       this.hemi.color.setHex(0x9988bb);
       this.hemi.groundColor.setHex(0x3a2a1a);
@@ -2069,20 +2138,20 @@ export class Renderer3D {
     // Special weather lighting — blood moon washes everything in red
     if (!zone.def.interior) {
       if (weather === 'blood_moon') {
-        this.ambient.color.lerp(new THREE.Color(0x8a2a1a), 0.35);
-        this.sun.color.lerp(new THREE.Color(0xff3a1a), 0.5);
+        this.ambient.color.lerp(LIGHT_PALETTE.bloodAmb, 0.35);
+        this.sun.color.lerp(LIGHT_PALETTE.bloodSun, 0.5);
         this.sun.intensity = Math.max(0.15, this.sun.intensity);
       }
       if (weather === 'glowing_fog') {
-        this.ambient.color.lerp(new THREE.Color(0x2a5a4a), 0.2);
+        this.ambient.color.lerp(LIGHT_PALETTE.glowAmb, 0.2);
       }
     }
   }
 
   _updateFog(weather, zone, isNight) {
     // Cozy-creepy palette: warm amber day, deep purple night, misty blue twilight
-    const fogDay = new THREE.Color(zone.def.interior ? 0x4a3828 : 0x8a8878);
-    const fogNight = new THREE.Color(zone.def.interior ? 0x1a1018 : 0x181820);
+    const fogDay = zone.def.interior ? LIGHT_PALETTE.fogDayIn : LIGHT_PALETTE.fogDayOut;
+    const fogNight = zone.def.interior ? LIGHT_PALETTE.fogNightIn : LIGHT_PALETTE.fogNightOut;
     this.scene.fog.color.copy(fogNight).lerp(fogDay, isNight ? 0.2 : 1);
     let density = zone.def.fog || 0;
     if (weather === 'fog') density = Math.max(density, 0.6);
@@ -2098,10 +2167,10 @@ export class Renderer3D {
       this.scene.fog.far = 35 - density * 18;
     }
     if (weather === 'blood_moon') {
-      this.scene.fog.color.lerp(new THREE.Color(0x6a1a1a), 0.4);
+      this.scene.fog.color.lerp(LIGHT_PALETTE.bloodFog, 0.4);
     }
     if (weather === 'silent_snow') {
-      this.scene.fog.color.lerp(new THREE.Color(0xc0d0e0), 0.25);
+      this.scene.fog.color.lerp(LIGHT_PALETTE.snowFog, 0.25);
     }
     this.renderer.setClearColor(0x000000);
   }
@@ -2119,6 +2188,8 @@ export class Renderer3D {
     this.entities.fritzShadow.position.set(s.fritz.x, 0.02, s.fritz.y);
     this._updateSprite(fSp, (ctx) => drawFritz(ctx, 0, 0, s.fritz.dir, s.fritz.state, Math.floor(s.fritz.anim), s.character?.pet || 'fritz'));
 
+    const frame = Math.floor(performance.now() / 300) % 4;
+
     // Romance companion — follows the player if romanced
     const nSp = this.entities.nikkiCompanion;
     if (s.romanceCompanion) {
@@ -2134,7 +2205,6 @@ export class Renderer3D {
     }
 
     // NPCs
-    const frame = Math.floor(performance.now() / 300) % 4;
     for (const { npc, sprite, shadow } of this.entities.npcs) { const inside = npc._wander && npc._wander.state === 'inside'; sprite.visible = shadow.visible = !inside; if (!inside) { sprite.position.set(npc.x + 0.5, 0.5, npc.y + 0.5); shadow.position.set(npc.x + 0.5, 0.02, npc.y + 0.5); this._updateSprite(sprite, (ctx) => drawNPC(ctx, 0, 0, npc.color, npc.dir || 0, frame, npc.id)); } }
 
     // Ground objects
@@ -2144,43 +2214,49 @@ export class Renderer3D {
       if (sprite.visible) this._updateSprite(sprite, (ctx) => drawGroundItem(ctx, obj.type, 0, 0));
     }
 
-    // Enemies — rebuild
-    this.entities.enemies.forEach(e => { this.entityGroup.remove(e.sprite); this._dispose(e.sprite); if (e.shadow) this.entityGroup.remove(e.shadow); });
-    this.entities.enemies = [];
-    if (enemies) for (const e of enemies) {
+    // Enemies — pooled sprites, canvas redrawn only when the pose changes
+    const enemyCount = enemies ? enemies.length : 0;
+    for (let i = 0; i < enemyCount; i++) {
+      const e = enemies[i];
+      const entry = this._poolEntry(this.entities.enemies, i, true);
+      const sp = entry.sprite;
       const isBigBoss = e.isBoss && e.typeId !== 'undead_shaman';
-      const sp = this._createSprite(isBigBoss ? 1.4 : 0.8, isBigBoss ? 1.6 : 0.9);
+      sp.scale.set(isBigBoss ? 1.4 : 0.8, isBigBoss ? 1.6 : 0.9, 1);
       sp.position.set(e.x, isBigBoss ? 0.8 : 0.45, e.y);
+      entry.shadow.position.set(e.x, 0.02, e.y);
+      const eFrame = Math.floor(e.anim);
+      const key = `${e.typeId}|${eFrame % 4}|${e.hitFlash > 0 ? 1 : 0}|${e.phase || 0}`;
       this._updateSprite(sp, (ctx) => {
-        if (e.isBoss && e.typeId === 'undead_shaman') drawShamanBoss(ctx, 0, 0, e, Math.floor(e.anim));
-        else drawEnemy(ctx, 0, 0, e, Math.floor(e.anim));
-      });
-      this.entityGroup.add(sp);
-      const sh = this._addBlobShadow(0.5);
-      sh.position.set(e.x, 0.02, e.y);
-      this.entityGroup.add(sh);
-      this.entities.enemies.push({ sprite: sp, shadow: sh });
+        if (e.isBoss && e.typeId === 'undead_shaman') drawShamanBoss(ctx, 0, 0, e, eFrame);
+        else drawEnemy(ctx, 0, 0, e, eFrame);
+      }, key);
     }
+    this._hidePoolTail(this.entities.enemies, enemyCount);
 
-    // Ghosts — rebuild
-    this.entities.ghosts.forEach(g => { this.entityGroup.remove(g.sprite); this._dispose(g.sprite); });
-    this.entities.ghosts = [];
-    for (const g of ghosts) {
+    // Ghosts — pooled; opacity lives on the material only (drawing at full
+    // alpha avoids the old alpha² double-fade), canvas redraws every frame
+    // because drawGhost animates from the wall clock
+    const ghostCount = ghosts ? ghosts.length : 0;
+    for (let i = 0; i < ghostCount; i++) {
+      const g = ghosts[i];
+      const entry = this._poolEntry(this.entities.ghosts, i, false);
+      const sp = entry.sprite;
       const isTentacle = g.type === 'tentacle';
-      const sp = this._createSprite(isTentacle ? 1.6 : 0.7, isTentacle ? 2.0 : 0.9);
+      sp.scale.set(isTentacle ? 1.6 : 0.7, isTentacle ? 2.0 : 0.9, 1);
       sp.position.set(g.x, isTentacle ? 1.0 : 0.5, g.y);
       sp.material.opacity = g.alpha * 0.7;
-      this._updateSprite(sp, (ctx) => drawGhost(ctx, 0, 0, g.alpha * 0.7, g.type, g.phase || 0));
-      this.entityGroup.add(sp);
-      this.entities.ghosts.push({ sprite: sp });
+      this._updateSprite(sp, (ctx) => drawGhost(ctx, 0, 0, 1, g.type, g.phase || 0));
     }
+    this._hidePoolTail(this.entities.ghosts, ghostCount);
 
-    // Particles — rebuild
-    this.entities.particles.forEach(p => { this.entityGroup.remove(p.sprite); this._dispose(p.sprite); });
-    this.entities.particles = [];
-    if (particles) for (const part of particles) {
+    // Particles — pooled
+    const partCount = particles ? particles.length : 0;
+    for (let i = 0; i < partCount; i++) {
+      const part = particles[i];
+      const entry = this._poolEntry(this.entities.particles, i, false);
+      const sp = entry.sprite;
       if (part.pickup) {
-        const sp = this._createSprite(0.28, 0.28);
+        sp.scale.set(0.28, 0.28, 1);
         sp.position.set(part.x, 0.3 + (part.height || 0), part.y);
         sp.material.opacity = Math.max(0, Math.min(1, part.life / part.maxLife));
         this._updateSprite(sp, (ctx) => {
@@ -2221,22 +2297,35 @@ export class Renderer3D {
             ctx.fillStyle = part.color || '#aaa';
             ctx.beginPath(); ctx.arc(cx, cy, 6, 0, Math.PI * 2); ctx.fill();
           }
-        });
-        this.entityGroup.add(sp);
-        this.entities.particles.push({ sprite: sp });
+        }, `pk|${part.itemType || ''}|${part.color || ''}`);
       } else {
-        const sp = this._createSprite(0.15, 0.15);
-        sp.position.set(part.x, 0.4 + part.y * 0.1, part.y);
+        sp.scale.set(0.15, 0.15, 1);
+        // sparks arc upward: map the particle's upward drift (spawned with
+        // negative map-Y velocity) onto world height at its spawn row
+        const rise = part.y0 !== undefined ? Math.max(0, part.y0 - part.y) : 0;
+        sp.position.set(part.x, 0.25 + rise, part.y0 !== undefined ? part.y0 : part.y);
         sp.material.opacity = Math.max(0, part.life / part.maxLife);
-        sp.material.color = new THREE.Color(part.color);
         this._updateSprite(sp, (ctx) => {
+          const cx = ctx.canvas.width / 2, cy = ctx.canvas.height / 2;
           ctx.fillStyle = part.color;
-          ctx.beginPath(); ctx.arc(ctx.canvas.width / 2, ctx.canvas.height / 2, 3 + (part.size || 2), 0, Math.PI * 2); ctx.fill();
-        });
-        this.entityGroup.add(sp);
-        this.entities.particles.push({ sprite: sp });
+          if (part.heart) {
+            const hs = 4 + (part.size || 2);
+            ctx.beginPath();
+            ctx.arc(cx - hs * 0.35, cy - hs * 0.25, hs * 0.42, 0, Math.PI * 2);
+            ctx.arc(cx + hs * 0.35, cy - hs * 0.25, hs * 0.42, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(cx - hs * 0.72, cy - hs * 0.05);
+            ctx.lineTo(cx + hs * 0.72, cy - hs * 0.05);
+            ctx.lineTo(cx, cy + hs * 0.85);
+            ctx.closePath(); ctx.fill();
+          } else {
+            ctx.beginPath(); ctx.arc(cx, cy, 3 + (part.size || 2), 0, Math.PI * 2); ctx.fill();
+          }
+        }, `dt|${part.color}|${part.heart ? 1 : 0}|${Math.round(part.size || 2)}`);
       }
     }
+    this._hidePoolTail(this.entities.particles, partCount);
   }
 
   _updateInteractiveTiles(px, pz, moving, dt) {

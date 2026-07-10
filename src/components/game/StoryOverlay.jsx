@@ -113,19 +113,19 @@ export default function StoryOverlay({ story, onComplete, onChoosePet }) {
               <p className="text-amber-100/60 text-xs font-mono uppercase tracking-wider">Choose your companion</p>
               <div className="flex gap-3">
                 <button
-                  onClick={() => { onChoosePet?.('fritz'); onComplete?.(); }}
+                  onClick={(e) => { e.stopPropagation(); onChoosePet?.('fritz'); onComplete?.(); }}
                   className="bg-amber-800/40 hover:bg-amber-700/50 text-amber-50 text-sm font-medium px-5 py-2.5 rounded-lg border border-amber-500/30 transition hover:scale-105"
                 >
                   🐱 Keep Fritz
                 </button>
                 <button
-                  onClick={() => { onChoosePet?.('void'); onComplete?.(); }}
+                  onClick={(e) => { e.stopPropagation(); onChoosePet?.('void'); onComplete?.(); }}
                   className="bg-purple-800/40 hover:bg-purple-700/50 text-purple-50 text-sm font-medium px-5 py-2.5 rounded-lg border border-purple-500/30 transition hover:scale-105"
                 >
                   🐈‍⬛ Keep Void
                 </button>
                 <button
-                  onClick={() => { onChoosePet?.('hanzo'); onComplete?.(); }}
+                  onClick={(e) => { e.stopPropagation(); onChoosePet?.('hanzo'); onComplete?.(); }}
                   className="bg-zinc-700/50 hover:bg-zinc-600/60 text-zinc-50 text-sm font-medium px-5 py-2.5 rounded-lg border border-zinc-400/30 transition hover:scale-105"
                 >
                   🐶 Choose Hanzo
@@ -135,7 +135,7 @@ export default function StoryOverlay({ story, onComplete, onChoosePet }) {
           ) : (
             <Button
               variant="ghost"
-              onClick={advance}
+              onClick={(e) => { e.stopPropagation(); advance(); }}
               className={`text-xs font-mono uppercase tracking-wider ${isTrueEnding ? 'text-amber-200 hover:text-amber-100' : isPetSwap ? 'text-stone-300 hover:text-stone-100' : 'text-purple-200 hover:text-purple-100'}`}
             >
               {isLast ? (isEnding ? (isTrueEnding ? 'Begin Anew' : 'Sleep & Forget') : 'Continue') : 'Next ▸'}

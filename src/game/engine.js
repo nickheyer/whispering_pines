@@ -2,7 +2,7 @@
 import { T, TILE_PROPS, ZONE_DEFS, ITEMS, SEASONS, BUILDABLES, MYSTERY_EVENTS, DAY_LENGTH, TIME_START, SELL_PRICES, SHOP_ITEMS, FISHING_SHOP_ITEMS, getGrottoPrize, TOOLS, SALOON_RESTORE_COST, WEAPONS, ARMOR, SALOON_ITEMS, CRAFT_RECIPES } from './constants';
 import { VILLAINS, TRUTH_FRAGMENTS, getIslandMonologue, CYCLE_CONFIG, GROTTO_BOTTOM, HOLLOWAY_EVIDENCE, HOLLOWAY_CONFRONTATION, canChooseHanzo, getTrueEndingMonologue } from './story';
 // GROTTO_BOTTOM is used in loadGrotto for lighthouse key chest removal
-import { NIKKI_NPC, shouldSpawnNikki, getNikkiPlacement, checkNikkiKidnapping, getNikkiBasementNpcs, NIKKI_BASEMENT_LINE } from './nikki';
+import { NIKKI_NPC, shouldSpawnNikki, getNikkiPlacement, checkNikkiKidnapping, getNikkiBasementNpcs, getNikkiDialogue, NIKKI_BASEMENT_LINE } from './nikki';
 import { installParticles } from './particles';
 import { installActionPrompt } from './actionPrompt';
 import { installNikkiCompanion } from './nikkiCompanion';
@@ -34,9 +34,6 @@ export class Game {
   constructor(canvas, onState, saveSlot = 0) {
     this.canvas = canvas;
     this.renderer3d = new Renderer3D(canvas);
-    installFarmStructures(this.renderer3d);
-    installExtraStructures(this.renderer3d);
-    installTileDecor(Renderer3D);
     this.onState = onState;
     this.saveSlot = saveSlot;
     this.saveKey = 'whispering_pines_save_' + saveSlot;
@@ -82,18 +79,8 @@ export class Game {
     this.renderer3d.resize(this.vw, this.vh);
   }
 
-  load() {
-    const raw = localStorage.getItem(this.saveKey);
-    if (!raw) return this._loadBackup();
-    let data;
-    try {
-      data = JSON.parse(raw);
-    } catch (e) {
-      // Main save is corrupt JSON — try the backup before giving up
-      return this._loadBackup();
-    }
-    this.state = data;
-    // migrate old saves
+  // Shared old-save migrations for load() and _loadBackup()
+  _migrateSave() {
     if (this.state.player.hp === undefined) {
       this.state.player.hp = this.getPlayerMaxHp();
       this.state.player.maxHp = this.state.player.hp;
@@ -101,7 +88,8 @@ export class Game {
     if (this.state.xp === undefined) this.state.xp = 0;
     if (!this.state.xpToNext) this.state.xpToNext = (this.state.level || 1) * 50;
     if (this.state.selectedTool === undefined) this.state.selectedTool = 0;
-    if (this.lanternOn === undefined) this.lanternOn = false;
+    // restore the lantern from the save so world glow, HUD and toggle agree
+    this.lanternOn = this.state.lanternOn = !!this.state.lanternOn;
     if (!this.state.storyCycle) this.state.storyCycle = 1;
     if (!this.state.villainsUnmasked) this.state.villainsUnmasked = [];
     if (!this.state.truthFragments) this.state.truthFragments = [];
@@ -114,6 +102,32 @@ export class Game {
     if (this.state.permHpBonus === undefined) this.state.permHpBonus = 0;
     if (this.state.tempAttackBonus === undefined) this.state.tempAttackBonus = 0;
     if (!this.state.inventory.waystone) this.state.inventory.waystone = 1;
+    if (this.state.inventory.coins) {
+      this.state.coins = (this.state.coins || 0) + this.state.inventory.coins;
+      delete this.state.inventory.coins;
+    }
+    if (this.state.zones && this.state.zones.grotto) this.state.zones.grotto.overrides = {};
+    const cw = this.state.zones && this.state.zones.cabin_woods;
+    if (cw && cw.objects) {
+      const evidenceSpots = { '4,6': 'evidence_sailcloth', '31,19': 'evidence_conch', '25,21': 'evidence_boot', '16,28': 'evidence_fogoil' };
+      for (const key in evidenceSpots) {
+        if (cw.objects[key] && !(this.state.flags && this.state.flags[evidenceSpots[key]])) delete cw.objects[key];
+      }
+    }
+  }
+
+  load() {
+    const raw = localStorage.getItem(this.saveKey);
+    if (!raw) return this._loadBackup();
+    let data;
+    try {
+      data = JSON.parse(raw);
+    } catch (e) {
+      // Main save is corrupt JSON — try the backup before giving up
+      return this._loadBackup();
+    }
+    this.state = data;
+    this._migrateSave();
     this.enemies = [];
     // Zone loading is OUTSIDE the parse try/catch — a zone error must never
     // cause a "save not found" → newGame() → save wipe. Fall back to shore.
@@ -139,27 +153,7 @@ export class Game {
       return false;
     }
     this.state = data;
-    // same migrations as load()
-    if (this.state.player.hp === undefined) {
-      this.state.player.hp = this.getPlayerMaxHp();
-      this.state.player.maxHp = this.state.player.hp;
-    }
-    if (this.state.xp === undefined) this.state.xp = 0;
-    if (!this.state.xpToNext) this.state.xpToNext = (this.state.level || 1) * 50;
-    if (this.state.selectedTool === undefined) this.state.selectedTool = 0;
-    if (this.lanternOn === undefined) this.lanternOn = false;
-    if (!this.state.storyCycle) this.state.storyCycle = 1;
-    if (!this.state.villainsUnmasked) this.state.villainsUnmasked = [];
-    if (!this.state.truthFragments) this.state.truthFragments = [];
-    if (!this.state.chestStorage) this.state.chestStorage = {};
-    if (this.state.petSwapOffered === undefined) this.state.petSwapOffered = false;
-    if (!this.state.romance) this.state.romance = {};
-    if (!this.state.equippedWeapon) this.state.equippedWeapon = null;
-    if (!this.state.equippedArmor) this.state.equippedArmor = null;
-    if (!this.state.equippedHat) this.state.equippedHat = null;
-    if (this.state.permHpBonus === undefined) this.state.permHpBonus = 0;
-    if (this.state.tempAttackBonus === undefined) this.state.tempAttackBonus = 0;
-    if (!this.state.inventory.waystone) this.state.inventory.waystone = 1;
+    this._migrateSave();
     this.enemies = [];
     try {
       this.loadZone(this.state.zone || 'shore');
@@ -183,7 +177,7 @@ export class Game {
       season: 'autumn',
       weather: 'clear',
       weatherTimer: 600,
-      inventory: { wood: 5, fiber: 3, seed_pumpkin: 2, seed_corn: 2, seed_potato: 2, seed_tomato: 2, pumpkin: 0, stone: 2, coins: 20, waystone: 1 },
+      inventory: { wood: 5, fiber: 3, seed_pumpkin: 2, seed_corn: 2, seed_potato: 2, seed_tomato: 2, pumpkin: 0, stone: 2, waystone: 1 },
       zones: {},
       journal: [],
       mysteries: [],
@@ -245,14 +239,16 @@ export class Game {
       id: zoneId, tiles, w: gen.w, h: gen.h, doors: gen.doors,
       objects, npcs: gen.npcs.slice(), def: ZONE_DEFS[zoneId],
     };
-    // Nikki's kidnapping — the stolen partner vanishes from town until rescued
-    if (zoneId === 'town' && this.state.flags && this.state.flags.nikkiKidnapped && !this.state.flags.nikkiRescued) {
+    // Nikki's kidnapping — the stolen partner vanishes from town until they've
+    // been rescued AND walked out of the basement with you
+    if (zoneId === 'town' && this.state.flags && this.state.flags.nikkiKidnapped &&
+        !(this.state.flags.nikkiRescued && this.state.flags.partnerWalkedOut)) {
       this.zone.npcs = this.zone.npcs.filter(n => n.id !== this.state.flags.nikkiKidnapped);
     }
-    // Nikki's basement — Nikki guards the coffin; the stolen partner lies inside
+    // Nikki's basement — Nikki guards the coffin; the stolen partner lies inside.
+    // After the rescue, the freed partner waits by the coffin until spoken to.
     if (zoneId === 'nikki_basement') {
-      if (this.state.flags && this.state.flags.nikkiRescued) this.zone.npcs = [];
-      else this.zone.npcs = getNikkiBasementNpcs(this.state);
+      this.zone.npcs = (this.state.flags && this.state.flags.partnerWalkedOut) ? [] : getNikkiBasementNpcs(this.state);
     }
     // Nikki the stalker appears in outdoor zones (cycle 2+)
     // If she's been romanced, she follows the player instead of spawning as a placed NPC
@@ -346,10 +342,10 @@ export class Game {
     if (!this.state.zones['grotto']) this.state.zones['grotto'] = { overrides: {}, objects: {} };
     const gen = generateZone('grotto', this.state.day, floor);
     const tiles = gen.tiles;
-    // remove already-collected prize chests — ONLY the center prize chest,
-    // NOT the lighthouse key chest at bottom-center
+    // remove already-collected prize chests — ONLY the prize chest (placed
+    // off-center, see maps.js), NOT the lighthouse key chest
     if (this.state.grottoChests && this.state.grottoChests[floor]) {
-      const cx = Math.floor(gen.w / 2);
+      const cx = Math.floor(gen.w / 2) - 4;
       const cy = Math.floor(gen.h / 2);
       if (tiles[cy] && tiles[cy][cx] === T.GROTTO_CHEST) tiles[cy][cx] = T.FLOOR;
     }
@@ -362,12 +358,17 @@ export class Game {
     this.zone = { id: 'grotto', tiles, w: gen.w, h: gen.h, doors: [], objects: [], npcs: [], def: ZONE_DEFS['grotto'], grottoFloor: floor };
     this.tiles = tiles;
     this.crops = {};
-    this.enemies = spawnEnemies(floor, tiles, gen.w, gen.h, this.state.player.x, this.state.player.y);
-    // Set the boss reference for floor 50 & 100 bosses so the HP bar and phase system work
-    this.boss = (this.enemies.length === 1 && this.enemies[0].isBoss) ? this.enemies[0] : null;
-    this.markEnemiesEncountered();
+    this._spawnGrottoEnemies(this.state.player.x, this.state.player.y);
     this.floorCleared = false;
     this.renderer3d.buildWorld(this.tiles, this.crops, this.zone, this.state.season);
+  }
+
+  // ── Grotto enemy spawn — always re-derive this.boss so the HP bar and
+  // phase system track the live object (floor 50/100 spawn a single boss) ──
+  _spawnGrottoEnemies(px, py) {
+    this.enemies = spawnEnemies(this.state.grottoFloor, this.tiles, this.zone.w, this.zone.h, px, py);
+    this.boss = (this.enemies.length === 1 && this.enemies[0].isBoss) ? this.enemies[0] : null;
+    this.markEnemiesEncountered();
   }
 
   // ── Bestiary tracking ──
@@ -416,8 +417,7 @@ export class Game {
     this.state.fritz.state = 'follow';
     this.state.fritz.dir = this.state.player.dir;
     this.playerTrail = [];
-    this.enemies = spawnEnemies(this.state.grottoFloor, this.tiles, this.zone.w, this.zone.h, 12, 15);
-    this.markEnemiesEncountered();
+    this._spawnGrottoEnemies(12, 15);
     this.showToast(`Grotto Floor ${this.state.grottoFloor}`, 3000);
     this.pushState();
     this.save();
@@ -438,8 +438,7 @@ export class Game {
     this.state.fritz.state = 'follow';
     this.state.fritz.dir = this.state.player.dir;
     this.playerTrail = [];
-    this.enemies = spawnEnemies(this.state.grottoFloor, this.tiles, this.zone.w, this.zone.h, 12, 2);
-    this.markEnemiesEncountered();
+    this._spawnGrottoEnemies(12, 2);
     this.showToast(`Grotto Floor ${this.state.grottoFloor}`, 3000);
     this.pushState();
     this.save();
@@ -458,8 +457,7 @@ export class Game {
     this.state.fritz.state = 'follow';
     this.state.fritz.dir = this.state.player.dir;
     this.playerTrail = [];
-    this.enemies = spawnEnemies(this.state.grottoFloor, this.tiles, this.zone.w, this.zone.h, 12, 15);
-    this.markEnemiesEncountered();
+    this._spawnGrottoEnemies(12, 15);
     this.showToast(`Warped to Grotto Floor ${this.state.grottoFloor}`, 3000);
     this.pushState();
     this.save();
@@ -681,6 +679,9 @@ export class Game {
     if (this._onResize) window.removeEventListener('resize', this._onResize);
     if (this._onKeyDown) window.removeEventListener('keydown', this._onKeyDown);
     if (this._onKeyUp) window.removeEventListener('keyup', this._onKeyUp);
+    // Free the renderer's scene and GL context — stop() is terminal (GamePage
+    // constructs a fresh Game on every mount)
+    if (this.renderer3d) this.renderer3d.dispose();
   }
 
   loop = () => {
@@ -688,15 +689,28 @@ export class Game {
     const now = performance.now();
     const dt = Math.min((now - this.lastTime) / 1000, 0.05);
     this.lastTime = now;
-    this.update(dt);
-    this.render();
+    // A thrown frame must never kill the rAF chain — that hard-freezes the
+    // game with no recovery except a reload. Log it and keep running.
+    try {
+      this.update(dt);
+      this.render();
+    } catch (err) {
+      if (String(err) !== this._lastLoopError) {
+        this._lastLoopError = String(err);
+        console.error('Whispering Pines: frame error (game continues):', err);
+      }
+    }
     requestAnimationFrame(this.loop);
   };
 
   handleKey(e, down) {
     if (!this.running) return;
     const k = e.key.toLowerCase();
+    // Always release keys so nothing sticks
+    const tag = e.target && e.target.tagName;
+    const typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (e.target && e.target.isContentEditable);
     if (down) {
+      if (typing) return;
       this.keys[k] = true;
       if (k === 'e') { e.preventDefault(); this.interact(false, false); }
       if (k === 't') { e.preventDefault(); this.talkToCompanion(); }
@@ -754,7 +768,11 @@ export class Game {
   useWaystone() {
     if (this.state.zone === 'home') { this.showToast('You are already home.', 3000); return; }
     if (this.doorCooldown > 0) return;
-    // don't allow escaping mid-combat in the grotto — the stone needs calm air
+    // no escaping mid-combat in the grotto — the stone needs calm air
+    if ((this.zone.id === 'grotto' || this.zone.id === 'shaman_dungeon') && this.enemies && this.enemies.length > 0) {
+      this.showToast('The Waystone stays cold. It will not sing with enemies near.', 3000);
+      return;
+    }
     this.showToast('The Waystone hums... the cabin pulls you home.', 3000);
     this.audio.playSfx('bell');
     this.transitionZone('home', 8, 11);
@@ -1141,6 +1159,10 @@ export class Game {
     const fs = this.fishingState;
     if (success) {
       this.addItem(fs.fish.id, 1);
+      // permanent bestiary record — survives eating/selling the last one
+      if (!this.state.flags) this.state.flags = {};
+      if (!this.state.flags.fishCaught) this.state.flags.fishCaught = {};
+      this.state.flags.fishCaught[fs.fish.id] = true;
       this.audio.playSfx('catch');
       const xpByRarity = { common: 2, uncommon: 4, rare: 8, epic: 15, legendary: 30 };
       this.gainXp(xpByRarity[fs.fish.rarity] || 2);
@@ -1199,6 +1221,15 @@ export class Game {
       if (this.state.flags && this.state.flags.nikkiRescued) {
         const rNpc = getRomanceNpc(npc.id);
         this.dialogue = { name: npc.name, text: rNpc ? `${rNpc.name} stirs in the coffin, blinking. "...you came. You actually came. I thought... I thought she'd keep me here forever." They reach for your hand. "Take me home. Please."` : 'They reach for you, trembling. "Take me out of here."' };
+        // They walk out with you — the companion returns to your side
+        if (!this.state.flags.partnerWalkedOut) {
+          this.state.flags.partnerWalkedOut = true;
+          this.state.romanceCompanion = { npcId: npc.id, name: npc.name, color: npc.color || '#c46a8a', x: this.state.player.x - 1, y: this.state.player.y, dir: 3, state: 'follow', anim: 0 };
+          this.state.journal.push({ day: this.state.day, text: `${npc.name} is back at your side. They hold your hand a little too tightly now, and they don't like the dark anymore. Neither do you.`, type: 'romance', npcId: npc.id, npcName: npc.name });
+          this.zone.npcs = this.zone.npcs.filter(n => n.id !== npc.id);
+          if (this.renderer3d) this.renderer3d.buildWorld(this.tiles, this.crops, this.zone, this.state.season);
+          this.save();
+        }
       } else {
         this.dialogue = { name: npc.name, text: 'They lie motionless in the coffin, breathing faintly. A gag. Bound hands. They can\'t speak. Nikki won\'t let them go.' };
       }
@@ -1214,7 +1245,9 @@ export class Game {
         if (!this.state.romance[npc.id]) this.state.romance[npc.id] = { points: 0, talkCount: 0, giftsGiven: 0, confessed: false };
         const rs = this.state.romance[npc.id];
         const oldLevel = getRomanceLevel(rs.points);
-        const line = getRomanceDialogue(rNpc, rs);
+        // Placed Nikki speaks her cycle dialogue — jealous foreshadowing in
+        // Cycle 2, full obsession in Cycle 3 (romance panel still available)
+        const line = npc.id === 'nikki' ? getNikkiDialogue(this.state, rs.talkCount || 0) : getRomanceDialogue(rNpc, rs);
         this.dialogue = { name: rNpc.name, text: line, romanceable: true, npcId: npc.id };
         // talking gives +2 affection (diminishing if already talked today)
         const todayKey = `romanceTalk_${npc.id}_${this.state.day}`;
@@ -1306,21 +1339,18 @@ export class Game {
       const idx = SEASONS.indexOf(s.season);
       s.season = SEASONS[(idx + 1) % SEASONS.length];
     }
-    // grow crops — rain auto-waters, each watered stage advances daily
+    // grow crops in every zone (fields keep growing while you sleep at home) —
+    // rain auto-waters, each watered stage advances daily
     const rained = ['rain', 'storm', 'drizzle', 'heavy_fog'].includes(s.weather);
-    for (const key in this.crops) {
-      const ov = this.crops[key];
-      if (ov.crop !== undefined) {
-        if (rained && !ov.watered) ov.watered = true;
-        if (ov.watered && ov.cropStage < 2) {
-          ov.cropStage += 1;
-          ov.watered = false;
-          this.saveTileOverride(...key.split(',').map(Number), ov);
-          if (this.renderer3d) this.renderer3d.updateCrop(...key.split(',').map(Number), ov);
-        } else if (ov.crop !== undefined) {
-          ov.watered = false;
-          if (this.renderer3d) this.renderer3d.updateCrop(...key.split(',').map(Number), ov);
-        }
+    for (const zoneId in s.zones) {
+      const overrides = s.zones[zoneId].overrides || {};
+      for (const key in overrides) {
+        const ov = overrides[key];
+        if (ov.crop === undefined) continue;
+        if ((rained || ov.watered) && ov.cropStage < (ov.growDays || 2)) ov.cropStage += 1;
+        ov.watered = false;
+        // current-zone crop objects share these refs; refresh their visuals
+        if (zoneId === s.zone && this.renderer3d) this.renderer3d.updateCrop(...key.split(',').map(Number), ov);
       }
     }
     // ── Tree & rock regrowth — resources replenish after a few days ──
@@ -1630,8 +1660,7 @@ export class Game {
     this.ensureSafeSpawn();
     // re-spawn grotto enemies now that player position is set
     if (to === 'grotto') {
-      this.enemies = spawnEnemies(this.state.grottoFloor, this.tiles, this.zone.w, this.zone.h, this.state.player.x, this.state.player.y);
-      this.markEnemiesEncountered();
+      this._spawnGrottoEnemies(this.state.player.x, this.state.player.y);
       this.floorCleared = false;
     }
     if (to === 'shaman_dungeon') {
@@ -1813,6 +1842,7 @@ export class Game {
       strangerShopItems: getStrangerShopItems(s),
       vampireBloodTaken: !!(s.flags && s.flags.vampireBloodTaken),
       bestiary: s.flags?.bestiary || {},
+      fishCaught: s.flags?.fishCaught || {},
       godModeUnlocked: !!(s.flags && s.flags.godModeUnlocked),
       godModeActive: !!(s.flags && s.flags.godModeActive),
       romance: s.romance || {},
@@ -2130,28 +2160,15 @@ export class Game {
     });
   }
 
+  // ── True ending finished: terminal state. Save and let GamePage return to the main menu. ──
+  finishGame() {
+    this.state.journal.push({ day: this.state.day, text: '✦ The curse is broken. The island is free. So are you. ✦', type: 'mystery' });
+    this.save();
+  }
+
   // ── NG+ reset: island wipes memory, throws you back to shore ──
   startNewCycle() {
     const cycle = (this.state.storyCycle || 1) + 1;
-    const isTrueEnding = cycle > 3;
-
-    if (isTrueEnding) {
-      // True ending — curse broken, game complete
-      this.state.flags = this.state.flags || {};
-      this.state.flags.curseBroken = true;
-      this.state.journal.push({ day: this.state.day, text: '✦ The curse is broken. The island is free. So are you. ✦', type: 'mystery' });
-      this.onState({
-        story: {
-          phase: 'ending',
-          ending: 'true',
-          cycle: 3,
-          speaker: 'The Island',
-          lines: ['You have set me free. The fog lifts. The springs go still. Go now, little survivor. Go home.'],
-        }
-      });
-      this.save();
-      return;
-    }
 
     // NG+ reset: keep level, strength, inventory, tools; reset zone, day, flags
     const keptLevel = this.state.level;
@@ -2335,13 +2352,11 @@ export class Game {
       if (enemy.isBoss && enemy.typeId === 'undead_shaman') {
         if (!this.state.flags) this.state.flags = {};
         this.state.flags.shamanDefeated = true;
-        this.markEnemyDefeated(enemy.typeId);
         this.boss = null;
         this.state.journal.push({ day: this.state.day, text: 'The Undead Shaman crumbles to dust. The Witch\'s Tome pulses on its pedestal — it is yours to take now.', type: 'mystery' });
         this.showToast('✦ The Shaman is defeated! The tome awaits! ✦', 6000);
         this.audio.playSfx('bell');
       } else if (enemy.isBoss && enemy.typeId === 'abyssal_warden') {
-        this.markEnemyDefeated(enemy.typeId);
         this.boss = null;
         this.addItem('crystal', 5);
         this.addItem('iron', 5);
@@ -2349,7 +2364,6 @@ export class Game {
         this.showToast('✦ The Abyssal Warden falls! Crystals & iron recovered! ✦', 6000);
         this.audio.playSfx('bell');
       } else if (enemy.isBoss && enemy.typeId === 'depth_leviathan') {
-        this.markEnemyDefeated(enemy.typeId);
         this.boss = null;
         this.addItem('crystal', 10);
         this.addItem('iron', 10);
@@ -2420,16 +2434,12 @@ export class Game {
     this.state.grottoFloor = 0;
     this.enemies = [];
     this.boss = null;
-    // advance day WITHOUT mystery events — death is not a "sleep" event
-    this.state.day += 1;
-    this.state.time = TIME_START;
-    this.state.player.energy = 100;
-    this.state.tempAttackBonus = 0;
-    this.state.weatherTimer = 300;
-    this.transitionZone('home', 8, 11);
+    // wake at home, then advance the day through endDay so crops, regrowth,
+    // animals and seasons still tick — fromSleep=false skips mystery events
     this.state.player.hp = this.getPlayerMaxHp();
+    this.transitionZone('home', 8, 11);
+    this.endDay(false);
     this.pushState();
-    this.save();
   }
 
   // ---- RENDER ----
@@ -2446,6 +2456,11 @@ export class Game {
   }
 }
 
+// Renderer prototype patches install once at module scope — installing in the
+// Game constructor grew the _buildTileObject wrapper chain every menu→play cycle
+installFarmStructures(Renderer3D);
+installExtraStructures(Renderer3D);
+installTileDecor(Renderer3D);
 installParticles(Game);
 installActionPrompt(Game);
 installNikkiCompanion(Game);

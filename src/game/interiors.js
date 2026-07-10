@@ -483,7 +483,7 @@ export function genFishMarket(tiles, w, h, doors, r) {
   tiles[h - 3][cx + 2] = T.PLANT_POT;
 
   tiles[h - 1][cx] = T.DOOR;
-  doors.push({ x: cx, y: h - 1, to: 'town', targetX: 22, targetY: 27 });
+  doors.push({ x: cx, y: h - 1, to: 'town', targetX: 28, targetY: 25 });
 }
 
 // ---- PATRICIA'S COTTAGE (cluttered, mysterious) ----
@@ -529,11 +529,11 @@ export function genPatricia(tiles, w, h, doors, r) {
   tiles[h - 2][cx + 2] = T.PLANT_POT;
 
   tiles[h - 1][cx] = T.DOOR;
-  doors.push({ x: cx, y: h - 1, to: 'town', targetX: 11, targetY: 22 });
+  doors.push({ x: cx, y: h - 1, to: 'town', targetX: 11, targetY: 20 });
 }
 
 // ---- TOWN HOUSE (simple home) ----
-export function genTownhouse(tiles, w, h, doors, r) {
+export function genTownhouse(tiles, w, h, doors, r, exit) {
   rect(tiles, 0, 0, w - 1, h - 1, T.WALL, w, h);
   rect(tiles, 1, 1, w - 2, h - 2, T.FLOOR, w, h);
   const cx = Math.floor(w / 2);
@@ -562,5 +562,5 @@ export function genTownhouse(tiles, w, h, doors, r) {
   tiles[h - 2][cx + 1] = T.PUMPKIN;
 
   tiles[h - 1][cx] = T.DOOR;
-  doors.push({ x: cx, y: h - 1, to: 'town', targetX: 11, targetY: 14 });
+  doors.push({ x: cx, y: h - 1, to: 'town', targetX: exit ? exit.x : 11, targetY: exit ? exit.y : 14 });
 }

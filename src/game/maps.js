@@ -30,7 +30,7 @@ export function generateZone(zoneId, daySeed, grottoFloor, options = {}) {
       case 'fishmarket': genFishMarket(tiles, w, h, doors, r); break;
       case 'patricia': genPatricia(tiles, w, h, doors, r); break;
       case 'townhouse1':
-      case 'townhouse2': genTownhouse(tiles, w, h, doors, r); break;
+      case 'townhouse2': genTownhouse(tiles, w, h, doors, r, { x: 38, y: 12 }); break;
       case 'cottage_rowan': genCottage(tiles, w, h, doors, r, 'workshop'); break;
       case 'cottage_willow': genCottage(tiles, w, h, doors, r, 'garden'); break;
       case 'cottage_finn': genCottage(tiles, w, h, doors, r, 'boathouse'); break;
@@ -110,15 +110,21 @@ function cluster(tiles, t, cx, cy, count, r, w, h, radius, avoid) {
 }
 
 function windingPath(tiles, x0, y0, x1, y1, r, w, h) {
+  // paths meander around buildings — never carve through walls, roofs or doors
+  const carve = (x, y) => {
+    const t = tiles[y] && tiles[y][x];
+    if (t === T.WALL || t === T.ROOF || t === T.DOOR) return;
+    set(tiles, x, y, T.PATH, w, h);
+  };
   let cx = x0, cy = y0;
   let guard = 0;
   while ((Math.abs(cx - x1) > 1 || Math.abs(cy - y1) > 1) && guard < 200) {
     guard++;
     if (r() > 0.5) cx += cx < x1 ? 1 : cx > x1 ? -1 : 0;
     else cy += cy < y1 ? 1 : cy > y1 ? -1 : 0;
-    set(tiles, cx, cy, T.PATH, w, h);
+    carve(cx, cy);
   }
-  set(tiles, x1, y1, T.PATH, w, h);
+  carve(x1, y1);
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -280,7 +286,7 @@ function genSpookyShores(tiles, w, h, objects, doors, r) {
   // north door to shaman's crypt (the dungeon)
   for (let y = 0; y < 4; y++) tiles[y][10] = T.PATH;
   tiles[0][10] = T.DOOR;
-  doors.push({ x: 10, y: 0, to: 'shaman_dungeon', targetX: 11, targetY: 16 });
+  doors.push({ x: 10, y: 0, to: 'shaman_dungeon', targetX: 11, targetY: 15 });
 
   // interactable objects — lore
   objects.push({ x: 10, y: 12, type: 'clue', collected: false, text: 'A weathered sign, nailed to a dead tree: "THE FAR SHORE. No one who crosses returns. The shaman keeps what the island discards."' });
@@ -618,11 +624,12 @@ function genTown(tiles, w, h, objects, doors, r) {
     { cx: 28, cy: 28, dx: 28, dy: 26, to: 'fishmarket', name: 'Fish Market' },
     { cx: 11, cy: 23, dx: 11, dy: 21, to: 'patricia', name: 'Patricia' },
     { cx: 11, cy: 11, dx: 11, dy: 13, to: 'townhouse1', name: 'House' },
+    { cx: 38, cy: 9, dx: 38, dy: 11, to: 'townhouse2', name: 'House' },
     // ── Romance NPC houses ──
     { cx: 38, cy: 17, dx: 38, dy: 15, to: 'cottage_rowan', name: 'Workshop' },
     { cx: 16, cy: 6, dx: 16, dy: 8, to: 'cottage_willow', name: 'Garden' },
     { cx: 4, cy: 17, dx: 4, dy: 15, to: 'cottage_finn', name: 'Boathouse' },
-    { cx: 28, cy: 30, dx: 28, dy: 28, to: 'cottage_luna', name: 'Tower' },
+    { cx: 38, cy: 28, dx: 38, dy: 26, to: 'cottage_luna', name: 'Tower' },
     { cx: 16, cy: 30, dx: 16, dy: 28, to: 'cottage_dante', name: 'Studio' },
   ];
 
@@ -631,8 +638,13 @@ function genTown(tiles, w, h, objects, doors, r) {
     rect(tiles, b.cx - 1, b.cy - 1, b.cx + 1, b.cy + 1, T.ROOF, w, h);
     tiles[b.dy][b.dx] = T.DOOR;
     doors.push({ x: b.dx, y: b.dy, to: b.to, targetX: Math.floor(ZONE_DEFS[b.to].w / 2), targetY: ZONE_DEFS[b.to].h - 2 });
-    // lantern post outside each building
-    tiles[b.dy + 1 < h ? b.dy + 1 : b.dy - 1][b.dx < ctx ? b.dx + 1 : b.dx - 1] = T.LANTERN_POST;
+    // lantern post outside each building — past the door on the path side,
+    // never carved into a neighbour's walls or roof
+    const lpy = b.dy < b.cy ? b.dy - 1 : b.dy + 1;
+    const lpx = b.dx < ctx ? b.dx + 1 : b.dx - 1;
+    if (lpy > 0 && lpy < h - 1 && tiles[lpy][lpx] !== T.WALL && tiles[lpy][lpx] !== T.ROOF && tiles[lpy][lpx] !== T.DOOR) {
+      tiles[lpy][lpx] = T.LANTERN_POST;
+    }
     // path from door toward center
     windingPath(tiles, b.dx, b.dy, ctx, cty, r, w, h);
     // decor around buildings
@@ -662,7 +674,7 @@ function genTown(tiles, w, h, objects, doors, r) {
     for (let i = 0; i <= steps; i++) {
       const sx = Math.round(lx + (dx * i) / steps);
       const sy = Math.round(ly + (dy * i) / steps);
-      if (sx > 0 && sy > 0 && sx < w - 1 && sy < h - 1 && tiles[sy][sx] !== T.WALL && tiles[sy][sx] !== T.DOOR) tiles[sy][sx] = T.STONE;
+      if (sx > 0 && sy > 0 && sx < w - 1 && sy < h - 1 && tiles[sy][sx] !== T.WALL && tiles[sy][sx] !== T.ROOF && tiles[sy][sx] !== T.DOOR) tiles[sy][sx] = T.STONE;
     }
   }
 
@@ -670,7 +682,7 @@ function genTown(tiles, w, h, objects, doors, r) {
   const isTownGrass = (x, y) => tiles[y][x] === T.GRASS || tiles[y][x] === T.DARK_GRASS;
 
   // market stalls near the store and fish market — crates, barrels, flower boxes
-  const stallSpots = [{ sx: 20, sy: 10 }, { sx: 26, sy: 26 }];
+  const stallSpots = [{ sx: 20, sy: 10 }, { sx: 24, sy: 26 }];
   for (const s of stallSpots) {
     set(tiles, s.sx, s.sy, T.CRATE, w, h);
     set(tiles, s.sx + 1, s.sy, T.BARREL, w, h);
@@ -679,7 +691,7 @@ function genTown(tiles, w, h, objects, doors, r) {
   }
 
   // community garden plot near a townhouse — tilled rows with a scarecrow
-  const ggx = 5, ggy = 14;
+  const ggx = 5, ggy = 9;
   for (let y = ggy; y < ggy + 3; y++)
     for (let x = ggx; x < ggx + 3; x++) set(tiles, x, y, T.TILLED, w, h);
   set(tiles, ggx - 1, ggy, T.SCARECROW, w, h);
@@ -715,8 +727,8 @@ function genTown(tiles, w, h, objects, doors, r) {
   scatter(tiles, T.FALLEN_LOG, 10, r, w, h, isTownGrass);
   scatter(tiles, T.MOSS, 30, r, w, h, isTownGrass);
 
-  // fairy mushroom ring in a quiet corner
-  const mrx = 38, mry = 6;
+  // fairy mushroom ring in a quiet corner, among the southern pines
+  const mrx = 5, mry = 30;
   for (let a = 0; a < 8; a++) {
     const ang = (a / 8) * Math.PI * 2;
     set(tiles, Math.round(mrx + Math.cos(ang) * 2), Math.round(mry + Math.sin(ang) * 2), T.MUSHROOM, w, h);
@@ -732,9 +744,9 @@ function genTown(tiles, w, h, objects, doors, r) {
   }
 
   // hay bales and feed trough near the southern cottages — farm charm
-  set(tiles, 14, 28, T.HAY_BALE, w, h);
-  set(tiles, 15, 28, T.FEED_TROUGH, w, h);
-  set(tiles, 13, 29, T.BARREL, w, h);
+  set(tiles, 12, 27, T.HAY_BALE, w, h);
+  set(tiles, 13, 27, T.FEED_TROUGH, w, h);
+  set(tiles, 11, 28, T.BARREL, w, h);
 
   // extra benches and flower vases — seating around the plaza
   set(tiles, ctx - 2, cty - 4, T.BENCH, w, h);
@@ -813,9 +825,9 @@ function genLighthouse(tiles, w, h, objects, doors, r) {
   tiles[ly - 1 < 0 ? 0 : ly - 1][lx + 2] = T.LANTERN_POST;
   tiles[ly + 1][lx + 2] = T.LANTERN_FLOOR;
   tiles[ly + 2][lx + 2] = T.LANTERN_FLOOR;
-  // door at base
+  // door at base — sealed; the crystal at the top is the real destination
   tiles[ly + 14][lx + 2] = T.DOOR;
-  doors.push({ x: lx + 2, y: ly + 14, to: 'lighthouse', targetX: lx + 2, targetY: ly + 16 });
+  doors.push({ x: lx + 2, y: ly + 14, to: 'lighthouse_base', targetX: lx + 2, targetY: ly + 16 });
 
   // rocky coast
   cluster(tiles, T.ROCK, 5, 20, 10, r, w, h, 4, (x, y) => tiles[y][x] === T.STONE);
@@ -1071,7 +1083,7 @@ export const NPC_PLACEMENT = {
       lines: ['Ahoy! Perfect timing — the fish are biting today!',
               'The sea was calm this morning. Good omen, I think.',
               'You ever been on a boat? I should take you out sometime!'] },
-    { id: 'luna', x: 28, y: 27, name: 'Luna', color: '#8a6aaa', romanceable: true,
+    { id: 'luna', x: 37, y: 25, name: 'Luna', color: '#8a6aaa', romanceable: true,
       lines: ['The stars were... talkative last night. About you, interestingly.',
               'I sense something different about you. The crystals agree.',
               'Come by my tower sometime. I have things to show you.'] },

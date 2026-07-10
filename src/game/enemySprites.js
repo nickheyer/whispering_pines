@@ -20,7 +20,7 @@ function drawShadow(ctx, x, y, s) {
 }
 
 export function drawEnemySprite(ctx, ox, oy, enemy, frame) {
-  const s = 32;
+  const s = ctx.canvas.width;
   const x = ox, y = oy;
   const flash = enemy.hitFlash > 0;
   const c = flash ? '#ffffff' : enemy.color;

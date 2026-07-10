@@ -19,6 +19,7 @@ export function getSaveSlots() {
 
 export function deleteSave(slot) {
   localStorage.removeItem(SAVE_PREFIX + slot);
+  localStorage.removeItem(SAVE_PREFIX + slot + '_backup');
   const meta = getSaveMeta();
   delete meta[slot];
   localStorage.setItem(META_KEY, JSON.stringify(meta));

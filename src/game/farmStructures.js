@@ -3,8 +3,8 @@
 import * as THREE from 'three';
 import { T } from './constants';
 
-export function installFarmStructures(renderer) {
-  const proto = Object.getPrototypeOf(renderer);
+export function installFarmStructures(rendererClass) {
+  const proto = rendererClass.prototype;
   const orig = proto._buildTileObject;
 
   proto._buildTileObject = function(tile, x, z) {

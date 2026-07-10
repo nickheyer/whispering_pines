@@ -348,6 +348,14 @@ export const SEEDS = [
   { id: 'seed_avocado', crop: 'avocado', growDays: 4, yield: 'avocado' },
 ];
 
+// Crops mature after their seed's growDays watered days
+export function cropMature(ov) { return ov.cropStage >= (ov.growDays || 2); }
+// Map growth progress onto the renderer's 3 visual stages (sprout/bush/fruiting)
+export function cropVisualStage(ov) {
+  if (cropMature(ov)) return 2;
+  return ov.cropStage >= (ov.growDays || 2) / 2 ? 1 : 0;
+}
+
 // ---- Shop: sell prices (coins per item) ----
 export const SELL_PRICES = {
   fish_common: 5, fish_rare: 15, fish_legend: 50,
@@ -438,7 +446,7 @@ export const SALOON_ITEMS = [
   { id: 'witchs_brew', name: "Witch's Brew", icon: '⚗️', price: 35, desc: '+5 Attack (today)', effect: 'tempattack' },
   // ── Gus's exclusive wares — only available at the saloon ──
   { id: 'gus_lucky_bait', name: "Gus's Lucky Bait", icon: '🪱', price: 15, desc: '3× catch zone', effect: 'item_bait' },
-  { id: 'prospectors_tonic', name: "Prospector's Tonic", icon: '☕', price: 20, desc: 'Yields 2 crystals', effect: 'item_crystal' },
+  { id: 'prospectors_tonic', name: "Prospector's Tonic", icon: '☕', price: 75, desc: 'Yields 2 crystals', effect: 'item_crystal' },
   { id: 'saloon_stew', name: 'Saloon Stew', icon: '🍲', price: 10, desc: 'Food bundle', effect: 'item_food' },
   { id: 'fogwalker_reserve', name: "Fogwalker's Reserve", icon: '🥃', price: 30, desc: 'Full energy +5 Atk', effect: 'fogwalker' },
 ];

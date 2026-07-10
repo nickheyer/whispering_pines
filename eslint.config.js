@@ -31,6 +31,10 @@ export default [
       "unused-imports": pluginUnusedImports,
     },
     rules: {
+      // the config spreads above replace each other's `rules` blocks, which
+      // silently dropped no-undef from js.configs.recommended — keep it on;
+      // it catches real crashes (undefined identifiers throw at runtime)
+      "no-undef": "error",
       "no-unused-vars": "off",
       "react/jsx-uses-vars": "error",
       "react/jsx-uses-react": "error",

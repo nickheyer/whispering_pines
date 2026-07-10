@@ -1,6 +1,6 @@
 // Action-prompt computation — extracted from engine.js to manage file size.
 // Installed onto the Game prototype via installActionPrompt(Game).
-import { T, TILE_PROPS, FISHING_ZONES, ITEMS, BUILDABLES } from './constants';
+import { T, TILE_PROPS, FISHING_ZONES, ITEMS, BUILDABLES, cropMature } from './constants';
 
 export function installActionPrompt(Game) {
   Game.prototype.updateActionPrompt = function () {
@@ -56,6 +56,7 @@ export function installActionPrompt(Game) {
     else if (tile === T.DOOR) {
       const door = this.zone.doors.find(d => d.x === fx && d.y === fy);
       if (door && door.to === 'lighthouse' && !this.canEnterLighthouse()) prompt = '🔒 Locked';
+      else if (door && door.to === 'lighthouse_base') prompt = '🔒 Sealed shut';
       else if (door && door.to === 'saloon' && !(this.state.flags && this.state.flags.saloonRestored)) prompt = '🔒 Boarded shut';
       else if (door && door.to === 'spooky_shores' && (this.state.storyCycle || 1) < 3) prompt = '🔒 Shrouded in fog';
       else if (door && door.to === 'nikki_basement') {
@@ -125,7 +126,7 @@ export function installActionPrompt(Game) {
     else if (tile === T.TILLED) {
       const ov = this.crops[`${fx},${fy}`];
       if (!ov || ov.crop === undefined) prompt = 'Plant (E)';
-      else if (ov.cropStage >= 2) prompt = 'Harvest (E)';
+      else if (cropMature(ov)) prompt = 'Harvest (E)';
       else if (!ov.watered) prompt = tool.id === 'watering_can' ? 'Water (Space)' : 'Select Watering Can';
     }
     else if (tile === T.WELL) prompt = 'Refill (E)';

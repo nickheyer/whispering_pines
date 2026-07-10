@@ -1,5 +1,7 @@
 // Romanceable NPCs — 5 new townsfolk with affection, gifts, and relationship levels
 
+import { getFishDisplay } from './fish';
+
 // Romance levels and thresholds
 export const ROMANCE_LEVELS = [
   { min: 0, name: 'Stranger', color: '#888888', icon: '○' },
@@ -88,7 +90,7 @@ export const ROMANCE_NPCS = [
     houseLabel: "Willow's Garden",
     personality: 'gentle, warm, nurturing',
     lovedGifts: ['mushroom', 'berry', 'herb', 'pumpkin'],
-    likedGifts: ['fiber', 'seed_pumpkin', 'flower'],
+    likedGifts: ['fiber', 'seed_pumpkin', 'apple'],
     dialogue: {
       stranger: [
         "Oh! You must be the shipwreck survivor. Everyone's been talking about you. Are you hurt? Do you need tea?",
@@ -136,7 +138,7 @@ export const ROMANCE_NPCS = [
     homeZone: 'cottage_finn',
     houseLabel: "Finn's Boathouse",
     personality: 'cheerful, adventurous, loyal',
-    lovedGifts: ['fish_common', 'fish_rare', 'fish_legend', 'bait'],
+    lovedGifts: ['bait', 'premium_bait'], // plus any fresh catch — see giftPreference
     likedGifts: ['wood', 'fiber', 'crystal'],
     dialogue: {
       stranger: [
@@ -185,7 +187,7 @@ export const ROMANCE_NPCS = [
     homeZone: 'cottage_luna',
     houseLabel: "Luna's Tower",
     personality: 'eccentric, mysterious, brilliant',
-    lovedGifts: ['crystal', 'antique', 'witch_tome', 'amulet'],
+    lovedGifts: ['crystal', 'antique', 'witch_tome', 'amethyst'],
     likedGifts: ['mushroom', 'berry', 'herb'],
     dialogue: {
       stranger: [
@@ -234,7 +236,7 @@ export const ROMANCE_NPCS = [
     homeZone: 'cottage_dante',
     houseLabel: "Dante's Studio",
     personality: 'melancholic, artistic, passionate',
-    lovedGifts: ['antique', 'crystal', 'witch_tome', 'amulet'],
+    lovedGifts: ['antique', 'crystal', 'witch_tome', 'ruby'],
     likedGifts: ['wood', 'fiber', 'berry', 'pumpkin'],
     dialogue: {
       stranger: [
@@ -284,7 +286,7 @@ export const ROMANCE_NPCS = [
     houseLabel: 'the island paths',
     personality: 'obsessive, devoted, dangerously loving',
     confessionThreshold: 1, // she's already obsessed — one gift is enough
-    lovedGifts: ['clue', 'antique', 'amulet'],
+    lovedGifts: ['clue', 'antique', 'diamond'], // diamonds are forever. so is she.
     likedGifts: ['mushroom', 'berry', 'herb'],
     dialogue: {
       stranger: [
@@ -350,8 +352,17 @@ export function getRomanceDialogue(npc, romanceState) {
   return lines[Math.min(seen % lines.length, lines.length - 1)];
 }
 
+// Shared by the gift engine and the RomancePanel highlights
+export function giftPreference(npc, itemId) {
+  if (npc.lovedGifts.includes(itemId)) return 'loved';
+  // Finn loves any fresh catch — all 100 species count
+  if (npc.id === 'finn' && getFishDisplay(itemId)) return 'loved';
+  if (npc.likedGifts.includes(itemId)) return 'liked';
+  return 'neutral';
+}
+
 export function getGiftReaction(npc, itemId) {
-  if (npc.lovedGifts.includes(itemId)) return { type: 'loved', text: npc.giftReaction.loved, points: 15 };
-  if (npc.likedGifts.includes(itemId)) return { type: 'liked', text: npc.giftReaction.liked, points: 8 };
-  return { type: 'neutral', text: npc.giftReaction.neutral, points: 3 };
+  const type = giftPreference(npc, itemId);
+  const points = type === 'loved' ? 15 : type === 'liked' ? 8 : 3;
+  return { type, text: npc.giftReaction[type], points };
 }

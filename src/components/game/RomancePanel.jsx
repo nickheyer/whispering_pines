@@ -3,7 +3,17 @@ import { motion } from 'framer-motion';
 import { X, Heart, Gift, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ITEMS } from '@/game/constants';
-import { getRomanceLevel, getNextLevelPoints, ROMANCE_LEVELS } from '@/game/romance';
+import { getFishDisplay } from '@/game/fish';
+import { getRomanceLevel, getNextLevelPoints, ROMANCE_LEVELS, ROMANCE_THRESHOLD_CONFESSION, giftPreference } from '@/game/romance';
+
+function getItemDisplay(id) {
+  // Fish buys love
+  const fish = getFishDisplay(id);
+  if (fish) return fish;
+  const item = ITEMS[id];
+  if (item) return { name: item.name, icon: item.icon, color: item.color };
+  return { name: id, icon: '❓', color: '#888' };
+}
 
 export default function RomancePanel({ npc, romanceState, inventory, onGiveGift, onConfess, onClose }) {
   if (!npc) return null;
@@ -11,9 +21,8 @@ export default function RomancePanel({ npc, romanceState, inventory, onGiveGift,
   const level = getRomanceLevel(points);
   const nextPoints = getNextLevelPoints(points);
   const isPartner = romanceState?.confessed;
-  const canConfess = points >= 120 && !isPartner;
-
-  const giftItems = Object.entries(inventory).filter(([, c]) => c > 0 && ITEMS[c > 0 ? Object.keys(inventory).find(k => k === Object.keys(inventory).find(k => inventory[k] > 0)) : ''] !== undefined);
+  const confessAt = npc.confessionThreshold || ROMANCE_THRESHOLD_CONFESSION;
+  const canConfess = points >= confessAt && !isPartner;
 
   // Collect all items with count > 0
   const allItems = Object.entries(inventory).filter(([, c]) => c > 0);
@@ -83,17 +92,18 @@ export default function RomancePanel({ npc, romanceState, inventory, onGiveGift,
                   <p className="text-amber-100/40 text-xs col-span-full text-center py-2">Your pack is empty.</p>
                 )}
                 {allItems.map(([id, count]) => {
-                  const item = ITEMS[id];
-                  const isLoved = npc.lovedGifts.includes(id);
-                  const isLiked = npc.likedGifts.includes(id);
+                  const item = getItemDisplay(id);
+                  const pref = giftPreference(npc, id);
+                  const isLoved = pref === 'loved';
+                  const isLiked = pref === 'liked';
                   return (
                     <button key={id}
                       onClick={() => onGiveGift(id)}
                       className="bg-zinc-800/60 border rounded-lg p-1.5 flex flex-col items-center gap-0.5 hover:bg-zinc-700/60 transition relative"
                       style={{ borderColor: isLoved ? '#e04050' : isLiked ? '#c4a44a' : '#3a3a3a' }}
                     >
-                      <span className="text-lg">{item?.icon || '❓'}</span>
-                      <span className="text-[7px] text-amber-100/60 text-center leading-tight">{item?.name || id}</span>
+                      <span className="text-lg">{item.icon}</span>
+                      <span className="text-[7px] text-amber-100/60 text-center leading-tight">{item.name}</span>
                       <span className="text-[8px] text-amber-400 font-mono">×{count}</span>
                       {isLoved && <span className="absolute -top-1 -right-1 text-[8px]">❤</span>}
                     </button>
@@ -116,7 +126,7 @@ export default function RomancePanel({ npc, romanceState, inventory, onGiveGift,
           {/* Hint */}
           {!isPartner && !canConfess && (
             <p className="text-[10px] text-amber-200/30 text-center italic">
-              {points < 120 ? `Reach 120 ♥ to confess your feelings` : 'Talk to them to confess!'}
+              {points < confessAt ? `Reach ${confessAt} ♥ to confess your feelings` : 'Talk to them to confess!'}
             </p>
           )}
           {isPartner && (
