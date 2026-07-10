@@ -1,8 +1,8 @@
 // Main game engine: state, input, update loop, rendering, farming, fishing, building, mystery, save/load
-import { TILE, SCALE, TILE_PX, T, TILE_PROPS, ZONE_DEFS, ITEMS, SEASONS, BUILDABLES, SEEDS, MYSTERY_EVENTS, DAY_LENGTH, TIME_START, SELL_PRICES, SHOP_ITEMS, FISHING_SHOP_ITEMS, getGrottoPrize, rng, TOOLS, FISHING_ZONES, SALOON_RESTORE_COST, WEAPONS, ARMOR, SALOON_ITEMS, CRAFT_RECIPES } from './constants';
-import { VILLAINS, TRUTH_FRAGMENTS, getIslandMonologue, CYCLE_CONFIG, GROTTO_BOTTOM, canTriggerEnding, HOLLOWAY_EVIDENCE, HOLLOWAY_CONFRONTATION, canAccessSpookyShores, canChooseHanzo, getTrueEndingMonologue } from './story';
+import { T, TILE_PROPS, ZONE_DEFS, ITEMS, SEASONS, BUILDABLES, MYSTERY_EVENTS, DAY_LENGTH, TIME_START, SELL_PRICES, SHOP_ITEMS, FISHING_SHOP_ITEMS, getGrottoPrize, TOOLS, SALOON_RESTORE_COST, WEAPONS, ARMOR, SALOON_ITEMS, CRAFT_RECIPES } from './constants';
+import { VILLAINS, TRUTH_FRAGMENTS, getIslandMonologue, CYCLE_CONFIG, GROTTO_BOTTOM, HOLLOWAY_EVIDENCE, HOLLOWAY_CONFRONTATION, canChooseHanzo, getTrueEndingMonologue } from './story';
 // GROTTO_BOTTOM is used in loadGrotto for lighthouse key chest removal
-import { NIKKI_NPC, shouldSpawnNikki, getNikkiPlacement, getNikkiDialogue, checkNikkiKidnapping, getNikkiBasementNpcs, NIKKI_BASEMENT_LINE } from './nikki';
+import { NIKKI_NPC, shouldSpawnNikki, getNikkiPlacement, checkNikkiKidnapping, getNikkiBasementNpcs, NIKKI_BASEMENT_LINE } from './nikki';
 import { installParticles } from './particles';
 import { installActionPrompt } from './actionPrompt';
 import { installNikkiCompanion } from './nikkiCompanion';
@@ -10,7 +10,7 @@ import { installCompanionTalk } from './companionTalk';
 import { installConsumables } from './consumables';
 import { DEJA_VU_LINES } from './dejavu';
 import { evaluateEncounters } from './encounters';
-import { generateZone, NPC_PLACEMENT } from './maps';
+import { generateZone } from './maps';
 import { Renderer3D } from './renderer3d';
 import { installBuildPreview } from './buildPreview';
 import { installInteract } from './interactSystem';
@@ -25,7 +25,7 @@ import { rollFish, getFishInfo, getFishSellPrice, getRarityInfo } from './fish';
 import { spawnEnemies, spawnBoss, getBossType } from './enemies';
 import { saveMeta } from './saveManager';
 import { WEATHER_TYPES, rollSpirit, getSpirit } from './weather';
-import { ROMANCE_NPCS, getRomanceNpc, getRomanceDialogue, getRomanceLevel, getGiftReaction, ROMANCE_THRESHOLD_CONFESSION } from './romance';
+import { getRomanceNpc, getRomanceDialogue, getRomanceLevel, getGiftReaction, ROMANCE_THRESHOLD_CONFESSION } from './romance';
 import { STRANGER_NPCS, shouldSpawnStrangers, rollStrangerArrival, getStrangerShopItems } from './strangers';
 import { FISH_TABLE } from './fish';
 import { pickSeasonalWeather } from './seasons';

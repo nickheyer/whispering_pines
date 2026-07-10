@@ -7,7 +7,7 @@
 // - Crop visual updates via renderer3d.updateCrop
 import { T, TILE_PROPS, ITEMS, SEEDS, BUILDABLES } from './constants';
 import { canAccessSpookyShores } from './story';
-import { HOLLOWAY_EVIDENCE, HOLLOWAY_CONFRONTATION } from './story';
+import { HOLLOWAY_EVIDENCE } from './story';
 
 export function installInteract(Game) {
   const origSetTileOverride = Game.prototype.setTileOverride;

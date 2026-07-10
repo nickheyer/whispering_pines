@@ -6,7 +6,7 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { T, COLORS, TILE_PX } from './constants';
-import { drawPlayer, drawFritz, drawNPC, drawGhost, drawEnemy, drawGroundItem, drawShamanBoss, drawWitchTome, setLanternOn } from './sprites';
+import { drawPlayer, drawFritz, drawNPC, drawGhost, drawEnemy, drawGroundItem, drawShamanBoss, setLanternOn } from './sprites';
 import { spawnCritters, updateCritters, drawCritter } from './critters';
 import { getSeasonalFoliage } from './seasons';
 import { buildIslandScenery } from './islandScenery';

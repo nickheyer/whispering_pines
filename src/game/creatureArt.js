@@ -1,5 +1,5 @@
 // Procedural creature sprite art for fish and monsters
-import { FISH_TABLE, FISH_RARITY, getFishInfo } from './fish';
+import { FISH_RARITY, getFishInfo } from './fish';
 import { ENEMY_TYPES, BOSS_TYPES } from './enemies';
 
 // ── Fish archetype mapping ──

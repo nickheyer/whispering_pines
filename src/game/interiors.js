@@ -1,5 +1,5 @@
 // Interior building generators — cozy, spooky, lived-in spaces
-import { T, ZONE_DEFS } from './constants';
+import { T } from './constants';
 
 function px(ctx, x, y, w, h, color) {
   ctx.fillStyle = color;

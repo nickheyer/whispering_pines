@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Game } from '@/game/engine';
-import { ITEMS, BUILDABLES, SELL_PRICES, SHOP_ITEMS, FISHING_SHOP_ITEMS, TOOLS, CONSUMABLES } from '@/game/constants';
+import { ITEMS, BUILDABLES, SELL_PRICES, TOOLS, CONSUMABLES } from '@/game/constants';
 import { getFishDisplay, getFishSellPrice, FISH_TABLE, FISH_RARITY } from '@/game/fish';
 import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -27,7 +27,7 @@ import WaystonePanel from '@/components/game/WaystonePanel';
 import SleepTransition from '@/components/game/SleepTransition';
 import CreatureSprite from '@/components/game/CreatureSprite';
 import GodPrompt from '@/components/game/GodPrompt';
-import { ROMANCE_NPCS, getRomanceNpc, getRomanceLevel } from '@/game/romance';
+import { getRomanceNpc } from '@/game/romance';
 import { getGrottoBiome } from '@/game/enemies';
 import { WEATHER_TYPES } from '@/game/weather';
 

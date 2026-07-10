@@ -1,7 +1,6 @@
 // Replaces the tentacle statue with a towering, dramatic monument —
 // massive curving tentacles, pulsing glow, and imposing scale.
 import * as THREE from 'three';
-import { T } from './constants';
 
 export function installTentacleMonument(Renderer3D) {
   Renderer3D.prototype._addTentacleStatue = function (x, z) {

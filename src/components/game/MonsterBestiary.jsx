@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { X, Skull, Eye, Swords, Heart, Zap, Layers } from 'lucide-react';
 import { ENEMY_TYPES, BOSS_TYPES, GROTTO_BIOMES } from '@/game/enemies';
 import CreatureSprite from './CreatureSprite';

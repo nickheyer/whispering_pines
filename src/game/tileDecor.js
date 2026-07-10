@@ -1,7 +1,7 @@
 // Spooky decor tiles, tilled soil rendering, and crop growth visuals.
 // Extracted from renderer3d.js to keep file size manageable.
 import * as THREE from 'three';
-import { T, COLORS } from './constants';
+import { T } from './constants';
 
 export function installTileDecor(rendererClass) {
   const proto = rendererClass.prototype;

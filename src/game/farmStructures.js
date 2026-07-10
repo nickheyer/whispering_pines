@@ -1,7 +1,7 @@
 // Farm & outdoor structure rendering — patched into Renderer3D at runtime
 // Keeps renderer3d.js under the line limit while adding rich 3D farm structures
 import * as THREE from 'three';
-import { T, COLORS } from './constants';
+import { T } from './constants';
 
 export function installFarmStructures(renderer) {
   const proto = Object.getPrototypeOf(renderer);

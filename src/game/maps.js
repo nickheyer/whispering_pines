@@ -1,6 +1,6 @@
 // Procedural zone map generation — Whispering Pines world layout
 // shore → cabin_woods → haunted_forest → town (with grotto to the right, lighthouse to the left)
-import { T, ZONE_DEFS, FISHING_ZONES, rng } from './constants';
+import { T, ZONE_DEFS, rng } from './constants';
 import { GROTTO_BOTTOM } from './story';
 import { getGrottoBiome } from './enemies';
 import { genInterior, genStore, genMayors, genSaloon, genFishMarket, genPatricia, genTownhouse, genMayorsBasement, genNikkiBasement } from './interiors';

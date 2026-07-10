@@ -1,5 +1,4 @@
 // Romanceable NPCs — 5 new townsfolk with affection, gifts, and relationship levels
-import { ITEMS } from './constants';
 
 // Romance levels and thresholds
 export const ROMANCE_LEVELS = [

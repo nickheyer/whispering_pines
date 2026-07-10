@@ -14,7 +14,7 @@ export default function SleepTransition({ data, onDone }) {
     const t4 = setTimeout(() => setPhase('reveal'), 3900);
     const t5 = setTimeout(() => onDone(), 4700);
     return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); clearTimeout(t5); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   const { before, after } = data;

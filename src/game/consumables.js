@@ -2,7 +2,7 @@
 // Eating food / drinking restores both HP and energy.
 // Fish can be eaten — HP/energy scales with rarity.
 import { CONSUMABLES } from './constants';
-import { getFishInfo, getRarityInfo } from './fish';
+import { getFishInfo } from './fish';
 
 export function installConsumables(Game) {
   Game.prototype.consumeItem = function (itemId) {

@@ -17,7 +17,6 @@
 //   cooldownDay: 1           — won't re-trigger for N in-game days after last attempt
 
 import { VILLAINS } from './story';
-import { T, TILE_PROPS } from './constants';
 
 // Track last encounter attempt per villain to enforce cooldown
 const lastAttempt = {}; // villainId -> in-game day number
