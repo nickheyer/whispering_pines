@@ -27,5 +27,5 @@
 <br>
 
 <p align="center">
-  <strong>— Nick, Cody & Lexx</strong>
+  <strong>— Cody, Lexx, & Nick</strong>
 </p>
